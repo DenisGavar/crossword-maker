@@ -68,6 +68,8 @@ class Crossword:
         self, word: str, row: int, col: int, direction: str, number: int
     ) -> bool:
         # check the borders
+        if row < 0 or col < 0:
+            return False
         if direction == "horizontal":
             if col + len(word) > self.grid.size:
                 return False
@@ -112,15 +114,15 @@ class Crossword:
             if direction == "horizontal":
                 x, y = row, col + i
                 if x > 0:
-                    self.grid.occupied[x - 1, y].add(short_direction)
+                    self.grid.occupied[x - 1, y].update(["h", "ve"])
                 if x < self.grid.size - 1:
-                    self.grid.occupied[x + 1, y].add(short_direction)
+                    self.grid.occupied[x + 1, y].update(["h", "vs"])
             else:
                 x, y = row + i, col
                 if y > 0:
-                    self.grid.occupied[x, y - 1].add(short_direction)
+                    self.grid.occupied[x, y - 1].update(["v", "he"])
                 if y < self.grid.size - 1:
-                    self.grid.occupied[x, y + 1].add(short_direction)
+                    self.grid.occupied[x, y + 1].update(["v", "hs"])
 
             self.grid.occupied[x, y].add(short_direction)
 
@@ -133,9 +135,7 @@ class Crossword:
         for placed_word in self.grid.words:
             for _ in range(50):
                 word_pos = random.randint(0, len(word) - 1)
-                # print(word_pos)
                 placed_word_pos = random.randint(0, len(placed_word) - 1)
-                # print(placed_word_pos)
                 if placed_word[3] == "horizontal":
                     new_row = placed_word[1] - word_pos
                     new_col = placed_word[2] + placed_word_pos
@@ -145,7 +145,6 @@ class Crossword:
                     new_col = placed_word[2] - word_pos
                     direction = "horizontal"
 
-                # print(new_row, new_col)
                 if self._try_place_word(word, new_row, new_col, direction, number):
                     return True
 
@@ -155,6 +154,18 @@ class Crossword:
         self, row: int, col: int, direction: str, word_length: int
     ) -> bool:
         short_direction = direction[0]
+
+        # check the first letter
+        if f"{short_direction}s" in self.grid.occupied[col, row]:
+            return False
+
+        # check the last letter
+        if short_direction == "h":
+            x, y = row, col + word_length - 1
+        else:
+            x, y = row + word_length - 1, col
+        if f"{short_direction}e" in self.grid.occupied[x, y]:
+            return False
 
         for i in range(word_length):
             if short_direction == "h":

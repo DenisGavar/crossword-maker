@@ -2,9 +2,9 @@ from typing import Optional
 import requests
 import random
 
-from ..utils.logger import logger
-from ..utils import exceptions
-from ..config.config import Config
+from src.utils.logger import logger
+from src.utils import exceptions
+from src.config.config import Config
 
 
 class DatamuseAPI:

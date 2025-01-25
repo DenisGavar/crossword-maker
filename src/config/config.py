@@ -1,5 +1,5 @@
 class Config:
     MIN_WORD_LENGTH = 4
     MAX_WORD_LENGTH = 8
-    MIN_WORD_FREQUENCY = 1.0
+    MIN_WORD_FREQUENCY = 5.0
     GRID_PADDING = 2

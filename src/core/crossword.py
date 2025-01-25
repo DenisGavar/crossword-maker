@@ -35,7 +35,8 @@ class Crossword:
             return False
 
         # fill in the blank words with certain words
-        pass
+        if not self._fill_words():
+            return False
 
         return True
 
@@ -164,6 +165,55 @@ class Crossword:
                 return False
 
         return True
+
+    def _fill_words(self) -> bool:
+        # fill in the words
+        for index, (word, row, col, direction, number) in enumerate(self.grid.words):
+            pattern = self._get_pattern(word, row, col, direction)
+            actual_word = self._fetch_word(pattern)
+
+            if not actual_word:
+                return False
+
+            # update the grid
+            self._update_grid(index, actual_word, row, col, direction, number)
+        return True
+
+    def _get_pattern(self, word: str, row: int, col: int, direction: str) -> str:
+        pattern = ""
+
+        for i in range(len(word)):
+            if direction == "horizontal":
+                x, y = row, col + i
+            else:
+                x, y = row + i, col
+            pattern += self.grid.grid[x, y]
+
+        return pattern
+
+    def _fetch_word(self, pattern: str) -> str:
+        for _ in range(self.attempt_limit):
+            word = self.api.get_word(pattern)
+            if word:
+                return word
+        return None
+
+    def _update_grid(
+        self,
+        index: int,
+        actual_word: str,
+        row: int,
+        col: int,
+        direction: str,
+        number: int,
+    ):
+        self.grid.words[index] = (actual_word, row, col, direction, number)
+        for i in range(len(actual_word)):
+            if direction == "horizontal":
+                x, y = row, col + i
+            else:
+                x, y = row + i, col
+            self.grid.grid[x, y] = actual_word[i].upper()
 
     def print(self):
         """Print crossword"""

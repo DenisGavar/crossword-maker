@@ -21,10 +21,6 @@ class CrosswordGrid:
         # occupied cells for:
         # v - vertical
         # h - horizontal
-        # vs - vertical start
-        # hs - horizontal start
-        # ve - vertical end
-        # he - horizontal end
         self.occupied = np.empty((size, size), dtype=object)
         for i in range(size):
             for j in range(size):

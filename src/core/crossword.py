@@ -4,6 +4,7 @@ import random
 from src.core.grid import CrosswordGrid
 from src.api.datamuse import DatamuseAPI
 from src.config.config import Config
+from src.utils.generators import coordinate_generator
 
 
 class Crossword:
@@ -12,6 +13,12 @@ class Crossword:
         self.grid: Optional[CrosswordGrid] = None
         self.api = DatamuseAPI()
         self.attempt_limit = 3
+
+    @property
+    def grid_size(self) -> int:
+        if self.grid is not None:
+            return self.grid.size
+        return 0
 
     def calculate_grid_size(self) -> int:
         base_size = max(
@@ -31,6 +38,7 @@ class Crossword:
         if not word_lengths:
             return False
 
+        # fill in the grid with blank words
         if not self._generate_layout(word_lengths):
             return False
 
@@ -50,8 +58,8 @@ class Crossword:
 
     def _generate_layout(self, word_lengths: List[int]) -> bool:
         first_length = word_lengths[0]
-        start_row = self.grid.size // 2
-        start_col = (self.grid.size - first_length) // 2
+        start_row = self.grid_size // 2
+        start_col = (self.grid_size - first_length) // 2
 
         if not self._try_place_word(
             "?" * first_length, start_row, start_col, "horizontal", 1
@@ -71,23 +79,18 @@ class Crossword:
         if row < 0 or col < 0:
             return False
         if direction == "horizontal":
-            if col + len(word) > self.grid.size:
+            if col + len(word) > self.grid_size:
                 return False
         else:
-            if row + len(word) > self.grid.size:
+            if row + len(word) > self.grid_size:
                 return False
 
         # check the overlap
         if not self._check_overlap(row, col, direction, len(word)):
             return False
 
-        # TODO:replace with a grid methods
         self.grid.words.append((word, row, col, direction, number))
-        for i in range(len(word)):
-            if direction == "horizontal":
-                x, y = row, col + i
-            else:
-                x, y = row + i, col
+        for i, (x, y) in enumerate(coordinate_generator(word, direction, row, col)):
             self.grid.grid[x, y] = word[i]
 
         # fill in occupied
@@ -99,14 +102,14 @@ class Crossword:
             end = col + len(word)
             if start >= 0:
                 self.grid.occupied[row, start].update(["v", "h"])
-            if end < self.grid.size:
+            if end < self.grid_size:
                 self.grid.occupied[row, end].update(["v", "h"])
         else:
             start = row - 1
             end = row + len(word)
             if start >= 0:
                 self.grid.occupied[start, col].update(["v", "h"])
-            if end < self.grid.size:
+            if end < self.grid_size:
                 self.grid.occupied[end, col].update(["v", "h"])
 
         # for all positions
@@ -115,13 +118,13 @@ class Crossword:
                 x, y = row, col + i
                 if x > 0:
                     self.grid.occupied[x - 1, y].update(["h", "ve"])
-                if x < self.grid.size - 1:
+                if x < self.grid_size - 1:
                     self.grid.occupied[x + 1, y].update(["h", "vs"])
             else:
                 x, y = row + i, col
                 if y > 0:
                     self.grid.occupied[x, y - 1].update(["v", "he"])
-                if y < self.grid.size - 1:
+                if y < self.grid_size - 1:
                     self.grid.occupied[x, y + 1].update(["v", "hs"])
 
             self.grid.occupied[x, y].add(short_direction)
@@ -131,22 +134,33 @@ class Crossword:
         return True
 
     def _place_word_in_layout(self, word: str, number: int) -> bool:
+        # shuffle words
         random.shuffle(self.grid.words)
-        for placed_word in self.grid.words:
-            for _ in range(50):
-                word_pos = random.randint(0, len(word) - 1)
-                placed_word_pos = random.randint(0, len(placed_word) - 1)
-                if placed_word[3] == "horizontal":
-                    new_row = placed_word[1] - word_pos
-                    new_col = placed_word[2] + placed_word_pos
-                    direction = "vertical"
-                else:
-                    new_row = placed_word[1] + placed_word_pos
-                    new_col = placed_word[2] - word_pos
-                    direction = "horizontal"
 
-                if self._try_place_word(word, new_row, new_col, direction, number):
-                    return True
+        # collect the possible positions of the new word
+        word_positions = [i for i in range(len(word))]
+
+        for placed_word in self.grid.words:
+            # collect and shuffle the possible positions of the placed word
+            placed_word_positions = [i for i in range(len(placed_word))]
+            random.shuffle(placed_word_positions)
+
+            for placed_word_pos in placed_word_positions:
+                # shuffle the possible positions of the new word
+                random.shuffle(word_positions)
+
+                for word_pos in word_positions:
+                    if placed_word[3] == "horizontal":
+                        new_row = placed_word[1] - word_pos
+                        new_col = placed_word[2] + placed_word_pos
+                        direction = "vertical"
+                    else:
+                        new_row = placed_word[1] + placed_word_pos
+                        new_col = placed_word[2] - word_pos
+                        direction = "horizontal"
+
+                    if self._try_place_word(word, new_row, new_col, direction, number):
+                        return True
 
         return False
 
@@ -193,11 +207,7 @@ class Crossword:
     def _get_pattern(self, word: str, row: int, col: int, direction: str) -> str:
         pattern = ""
 
-        for i in range(len(word)):
-            if direction == "horizontal":
-                x, y = row, col + i
-            else:
-                x, y = row + i, col
+        for x, y in coordinate_generator(word, direction, row, col):
             pattern += self.grid.grid[x, y]
 
         return pattern
@@ -219,11 +229,9 @@ class Crossword:
         number: int,
     ):
         self.grid.words[index] = (actual_word, row, col, direction, number)
-        for i in range(len(actual_word)):
-            if direction == "horizontal":
-                x, y = row, col + i
-            else:
-                x, y = row + i, col
+        for i, (x, y) in enumerate(
+            coordinate_generator(actual_word, direction, row, col)
+        ):
             self.grid.grid[x, y] = actual_word[i].upper()
 
     def print(self):

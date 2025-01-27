@@ -42,6 +42,8 @@ class Crossword:
         if not self._generate_layout(word_lengths):
             return False
 
+        self.print()
+
         # fill in the blank words with certain words
         if not self._fill_words():
             return False
@@ -192,17 +194,59 @@ class Crossword:
         return True
 
     def _fill_words(self) -> bool:
-        # fill in the words
-        for index, (word, row, col, direction, number) in enumerate(self.grid.words):
-            pattern = self._get_pattern(word, row, col, direction)
-            actual_word = self._fetch_word(pattern)
+        return self._backtrack(0)
 
-            if not actual_word:
-                return False
+    def _backtrack(self, index: int) -> bool:
+        if index >= len(self.grid.words):
+            return True
 
-            # update the grid
-            self._update_grid(index, actual_word, row, col, direction, number)
-        return True
+        word_info = self.grid.words[index]
+        word, row, col, direction, number = word_info
+        pattern = self._get_pattern(word, row, col, direction)
+
+        # Получаем все возможные слова для текущего паттерна
+        possible_words = self._fetch_words(pattern)
+
+        print(f"index: {index}, count_candidates: {len(possible_words)}")
+
+        for candidate in possible_words:
+            # Сохраняем текущее состояние затронутых ячеек
+            saved_cells = self._save_cells_state(row, col, direction, len(candidate))
+
+            # Обновляем сетку кандидатом
+            self._update_grid(index, candidate, row, col, direction, number)
+
+            # Рекурсивно пытаемся заполнить следующие слова
+            if self._backtrack(index + 1):
+                return True
+
+            # Если не получилось - восстанавливаем состояние
+            self._restore_cells_state(saved_cells)
+
+        return False
+
+    def _save_cells_state(
+        self, row: int, col: int, direction: str, length: int
+    ) -> list:
+        saved = []
+        for i in range(length):
+            if direction == "horizontal":
+                r = row
+                c = col + i
+            else:
+                r = row + i
+                c = col
+            saved.append((r, c, self.grid.grid[r, c]))
+        return saved
+
+    def _restore_cells_state(self, saved_cells: list):
+        for r, c, char in saved_cells:
+            self.grid.grid[r, c] = char
+
+    def _get_possible_words(self, pattern: str) -> list:
+        # Ваша реализация получения ВСЕХ подходящих слов для паттерна
+        # Например, из базы данных или другого источника
+        return []
 
     def _get_pattern(self, word: str, row: int, col: int, direction: str) -> str:
         pattern = ""
@@ -212,12 +256,12 @@ class Crossword:
 
         return pattern
 
-    def _fetch_word(self, pattern: str) -> str:
+    def _fetch_words(self, pattern: str) -> str:
         for _ in range(self.attempt_limit):
-            word = self.api.get_word(pattern)
-            if word:
-                return word
-        return None
+            words = self.api.get_words(pattern)
+            if words:
+                return words
+        return []
 
     def _update_grid(
         self,

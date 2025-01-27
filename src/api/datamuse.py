@@ -11,7 +11,7 @@ class DatamuseAPI:
     def __init__(self):
         self.base_url = "https://api.datamuse.com/words"
 
-    def get_word(self, pattern: str = None) -> Optional[str]:
+    def get_words(self, pattern: str = None) -> Optional[str]:
         params = {
             "sp": pattern,
             "max": 100,
@@ -35,6 +35,10 @@ class DatamuseAPI:
             word = item.get("word", "")
             tags = item.get("tags", [])
 
+            # The word must contain only letters
+            if not word.isalpha():
+                continue
+
             # We need only nouns
             if not "n" in tags:
                 continue
@@ -51,6 +55,10 @@ class DatamuseAPI:
                         raise exceptions.APIError("Failed to get a word frequency")
 
             if freq > Config.MIN_WORD_FREQUENCY:
-                filtered.append(word)
+                filtered.append((word, freq))
 
-        return random.choice(filtered) if filtered else None
+        # return random.choice(filtered) if filtered else None
+
+        return [
+            pair[0] for pair in sorted(filtered, key=lambda pair: pair[1], reverse=True)
+        ]
